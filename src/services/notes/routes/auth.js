@@ -38,17 +38,20 @@ module.exports = () => {
   // ── GitHub OAuth ─────────────────────────────────────────────────────────
 
   // GET /api/notes/auth/github
-  router.get(
-    '/github',
-    passport.authenticate('github', { scope: ['user:email'], session: false })
-  );
+  router.get('/github', (req, res, next) => {
+    if (!process.env.GITHUB_CLIENT_ID) {
+      return res.status(503).json({ message: 'GitHub sign-in is not configured on this server.' });
+    }
+    passport.authenticate('github', { scope: ['user:email'], session: false })(req, res, next);
+  });
 
   // GET /api/notes/auth/github/callback
-  router.get(
-    '/github/callback',
-    passport.authenticate('github', { failureRedirect: `${FRONTEND_URL}/login?error=github_failed`, session: false }),
-    oauthSuccess
-  );
+  router.get('/github/callback', (req, res, next) => {
+    if (!process.env.GITHUB_CLIENT_ID) {
+      return res.redirect(`${FRONTEND_URL}/login?error=github_not_configured`);
+    }
+    passport.authenticate('github', { failureRedirect: `${FRONTEND_URL}/login?error=github_failed`, session: false })(req, res, next);
+  }, oauthSuccess);
 
   return router;
 };
