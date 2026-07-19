@@ -8,7 +8,7 @@ const cityRoutes = require('./routes/cities');
 
 const limiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 100,
+  max: 1000,
   standardHeaders: 'draft-7', // sends combined `RateLimit` header (RFC-compliant)
   legacyHeaders: false,        // disables deprecated X-RateLimit-* headers
   message: { success: false, message: 'Too many requests, please try again after an hour.' },

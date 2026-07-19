@@ -1,39 +1,36 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
 const registerModels = (conn) => {
-  // User
-  const UserSchema = new mongoose.Schema({
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String },
-    googleId: { type: String },
-  });
+  // User — supports Google and GitHub OAuth only (no local password auth)
+  const UserSchema = new mongoose.Schema(
+    {
+      firstName: { type: String, required: true },
+      lastName: { type: String, default: '' },
+      email: { type: String, required: true, unique: true },
+      googleId: { type: String, sparse: true },
+      githubId: { type: String, sparse: true },
+    },
+    { timestamps: true }
+  );
 
-  UserSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  });
+  // Project (folder)
+  const ProjectSchema = new mongoose.Schema(
+    {
+      name: { type: String, required: true },
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    },
+    { timestamps: true }
+  );
 
-  UserSchema.methods.matchPassword = async function (enteredPassword) {
-    return bcrypt.compare(enteredPassword, this.password);
-  };
-
-  // Project
-  const ProjectSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  });
-
-  // File
-  const FileSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
-    content: { type: String },
-  });
+  // File (note / canvas)
+  const FileSchema = new mongoose.Schema(
+    {
+      name: { type: String, required: true },
+      project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+      content: { type: String, default: '' },
+    },
+    { timestamps: true }
+  );
 
   return {
     User: conn.model('User', UserSchema),

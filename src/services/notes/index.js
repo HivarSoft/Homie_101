@@ -1,6 +1,7 @@
 const express = require('express');
 const passport = require('passport');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const { connectDB } = require('../../config/db');
 const registerModels = require('./models');
 const configurePassport = require('./config/passport');
@@ -11,7 +12,23 @@ const projectRoutes = require('./routes/project');
 const fileRoutes = require('./routes/file');
 const gptRoutes = require('./routes/gpt');
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+// Rate limiter: 100 requests per 15 min for general API
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later.' },
+});
+
+// Stricter limiter for auth endpoints to prevent OAuth redirect abuse
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many auth attempts, please try again later.' },
+});
 
 module.exports = async (app) => {
   const conn = await connectDB('notes', process.env.NOTES_MONGO_URI);
@@ -22,8 +39,15 @@ module.exports = async (app) => {
   const protectMiddleware = protect(User);
   const router = express.Router();
 
-  router.use(limiter);
-  router.use('/auth', authRoutes(User));
+  // Security headers scoped to this service
+  router.use(helmet());
+
+  // Rate limiting
+  router.use('/auth', authLimiter);
+  router.use(apiLimiter);
+
+  // Routes
+  router.use('/auth', authRoutes());
   router.use('/', projectRoutes(Project, File, protectMiddleware));
   router.use('/', fileRoutes(File, Project, protectMiddleware));
   router.use('/', gptRoutes(protectMiddleware));
